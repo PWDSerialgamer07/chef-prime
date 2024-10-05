@@ -57,7 +57,8 @@ async def leave(ctx):
 
 @bot.command(name="play", help="Plays a song from YouTube")
 async def play(ctx, url):
-    ffmpeg_options = {'options': '-vn'}
+    ffmpeg_options = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
     ydl_opts = {'format': 'bestaudio'}
     print("Received play command")
 
