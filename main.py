@@ -5,6 +5,7 @@ from discord import FFmpegPCMAudio
 from dotenv import load_dotenv
 import yt_dlp
 import nacl
+import re
 
 
 load_dotenv()
@@ -17,6 +18,7 @@ intents.message_content = True
 
 # Create bot instance with command prefix
 bot = commands.Bot(command_prefix=">", intents=intents)
+loop_song = 0
 
 # Other functions
 song_queue = []
@@ -50,13 +52,14 @@ async def leave(ctx):
     voice_client = ctx.message.guild.voice_client
     if voice_client and voice_client.is_connected():
         print("Received leave command, disconnecting from the voice channel")
+        song_queue.clear()
         await voice_client.disconnect()
     else:
         await ctx.send("The bot is not connected to a voice channel.")
 
 
 @bot.command(name="play", help="Plays a song from YouTube")
-async def play(ctx, url):
+async def play(ctx, url, timestamp=None):
     ffmpeg_options = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
     ydl_opts = {'format': 'bestaudio'}
@@ -66,6 +69,12 @@ async def play(ctx, url):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             song_info = ydl.extract_info(url, download=False)
             song_url = song_info["url"]
+            if timestamp:
+                converted_timestamp = convert_timestamp_to_seconds(timestamp)
+                if converted_timestamp:
+                    songurl += f"&t={converted_timestamp}"
+                else:
+                    song_url += f"&t={timestamp}"
             song_title = song_info['title']
 
             if ctx.author.voice:
@@ -128,7 +137,30 @@ async def queue(ctx):
         await ctx.send("**No songs in queue.**")
 
 
-async def play_next(ctx):
+@bot.command(name="loop", help="Loops the current song")
+async def loop(ctx):
+    global loop_enabled
+    loop_enabled = not loop_enabled  # Toggle the loop state
+    if loop_enabled:
+        await ctx.send("**Looping enabled**")
+    else:
+        await ctx.send("**Looping disabled**")
+
+
+async def play_next(ctx, l=0):
+    if loop_enabled and ctx.voice_client.is_playing():
+        # Get the current song that's playing
+        current_song = song_queue[0] if song_queue else None
+
+        if current_song:
+            with yt_dlp.YoutubeDL({'format': 'bestaudio'}) as ydl:
+                song_info = ydl.extract_info(current_song, download=False)
+                song_title = song_info['title']
+                await ctx.send(f"**Looping song:** {song_title}")
+                ctx.voice_client.play(discord.FFmpegPCMAudio(
+                    song_info["url"], options={'options': '-vn'}), after=lambda e: bot.loop.create_task(play_next(ctx)))
+        return
+
     if song_queue:
         next_song = song_queue.pop(0)
         with yt_dlp.YoutubeDL({'format': 'bestaudio'}) as ydl:
@@ -137,6 +169,39 @@ async def play_next(ctx):
             await ctx.send(f"**Now playing:** {song_title}")
             ctx.voice_client.play(discord.FFmpegPCMAudio(
                 song_info["url"], options={'options': '-vn'}), after=lambda e: bot.loop.create_task(play_next(ctx)))
+
+
+def convert_timestamp_to_seconds(timestamp):
+    # Regular expression patterns for "HH:MM:SS", "MM:SS", and "SS"
+    pattern_hms = r"^\d{1,2}:\d{2}:\d{2}$"  # HH:MM:SS
+    pattern_ms = r"^\d{1,2}:\d{2}$"         # MM:SS
+    pattern_s = r"^\d{1,2}$"                # SS
+
+    if re.match(pattern_hms, timestamp):
+        # Split and convert "HH:MM:SS"
+        parts = timestamp.split(":")
+        hours = int(parts[0])
+        minutes = int(parts[1])
+        seconds = int(parts[2])
+        total_seconds = hours * 3600 + minutes * 60 + seconds
+        return total_seconds
+
+    elif re.match(pattern_ms, timestamp):
+        # Split and convert "MM:SS"
+        parts = timestamp.split(":")
+        minutes = int(parts[0])
+        seconds = int(parts[1])
+        total_seconds = minutes * 60 + seconds
+        return total_seconds
+
+    elif re.match(pattern_s, timestamp):
+        # Convert "SS"
+        seconds = int(timestamp)
+        return seconds
+
+    else:
+        # If it doesn't match any format, return None
+        return None
 
 
 # Run the bot
