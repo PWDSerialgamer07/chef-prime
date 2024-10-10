@@ -18,7 +18,7 @@ intents.message_content = True
 
 # Create bot instance with command prefix
 bot = commands.Bot(command_prefix=">", intents=intents)
-loop_song = 0
+loop_enabled = 0
 
 # Other functions
 song_queue = []
@@ -72,7 +72,7 @@ async def play(ctx, url, timestamp=None):
             if timestamp:
                 converted_timestamp = convert_timestamp_to_seconds(timestamp)
                 if converted_timestamp:
-                    songurl += f"&t={converted_timestamp}"
+                    song_url += f"&t={converted_timestamp}"
                 else:
                     song_url += f"&t={timestamp}"
             song_title = song_info['title']
