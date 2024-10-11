@@ -1,0 +1,4 @@
+pycord
+yt_dlp
+PyNaCl
+python-dotenv

@@ -16,8 +16,9 @@ intents = discord.Intents.default()
 intents.voice_states = True
 intents.message_content = True
 
-# Create bot instance with command prefix
+# Create bot instance with command prefix and make slash command tree
 bot = commands.Bot(command_prefix=">", intents=intents)
+# tree = bot.tree
 loop_enabled = 0
 
 # Other functions
@@ -28,40 +29,55 @@ song_queue = []
 async def on_ready():
     print(f'Bot connected as {bot.user}')
     print(f"Registered commands: {bot.commands}")
+    try:
+        await bot.sync_commands()
+        print("Synced commands")
+    except Exception as e:
+        print(f"Error syncing commands: {e}")
 
 
-@bot.command(name='join', help='Tells the bot to join the voice channel')
-async def join(ctx):
-    if not ctx.message.author.voice:
-        await ctx.send(f"{ctx.message.author.name} is not connected to a voice channel")
+@bot.slash_command(name="join", description="Tells the bot to join the voice channel.")
+# @app_commands.describe(message="The message to echo.")
+async def join(interaction: discord.Interaction) -> None:
+    user = interaction.user
+
+    if not user.voice:
+        await interaction.response.send_message(f"{user.name} is not connected to a voice channel", ephemeral=False)
         return
 
-    channel = ctx.message.author.voice.channel
+    channel = user.voice.channel
     print(
-        f"Received join command from {ctx.message.author.name}, connecting to {channel.name}")
+        f"Received join command from {user.name}, connecting to {channel.name}")
 
     # Attempt to connect to the voice channel
     try:
         await channel.connect()
+        await interaction.response.send_message(f"Connected to {channel.name}")
     except Exception as e:
         print(f"Error occurred while connecting to the voice channel: {e}")
+        await interaction.followup.send(f"Failed to connect to {channel.name}: {e}", ephemeral=False)
 
 
-@bot.command(name='leave', help='Tells the bot to leave the voice channel')
-async def leave(ctx):
-    voice_client = ctx.message.guild.voice_client
+@bot.slash_command(name="leave", description="Tells the bot to leave the voice channel.")
+async def leave(interaction: discord.Interaction) -> None:
+    guild = interaction.guild
+    voice_client = guild.voice_client
+
     if voice_client and voice_client.is_connected():
         print("Received leave command, disconnecting from the voice channel")
-        song_queue.clear()
+        song_queue.clear()  # Assuming `song_queue` is defined elsewhere in your code
         await voice_client.disconnect()
+        await interaction.response.send_message("Disconnected from the voice channel.")
     else:
-        await ctx.send("The bot is not connected to a voice channel.")
+        await interaction.response.send_message("The bot is not connected to a voice channel.", ephemeral=False)
 
 
-@bot.command(name="play", help="Plays a song from YouTube")
-async def play(ctx, url, timestamp=None):
+@bot.slash_command(name="play", description="Plays a song from YouTube.")
+async def play(interaction: discord.Interaction, url: str, timestamp: str = None) -> None:
     ffmpeg_options = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+        'options': '-vn'
+    }
     ydl_opts = {'format': 'bestaudio'}
     print("Received play command")
 
@@ -70,62 +86,68 @@ async def play(ctx, url, timestamp=None):
             song_info = ydl.extract_info(url, download=False)
             song_url = song_info["url"]
             song_title = song_info['title']
+
             if timestamp:
                 converted_timestamp = convert_timestamp_to_seconds(timestamp)
                 if converted_timestamp:
                     ffmpeg_options['before_options'] += f" -ss {converted_timestamp}"
-                    await ctx.send(url)
                 else:
                     ffmpeg_options['before_options'] += f" -ss {timestamp}"
-                    await ctx.send(url)
 
-            if ctx.author.voice:
-                voice_channel = ctx.author.voice.channel
-                voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+            # Ensure the user is in a voice channel
+            if interaction.user.voice:
+                voice_channel = interaction.user.voice.channel
+                voice = discord.utils.get(
+                    bot.voice_clients, guild=interaction.guild)
 
                 if voice and voice.is_connected():
                     await voice.move_to(voice_channel)
                 else:
                     voice = await voice_channel.connect()
 
-                # Check if there's already something playing
+                # Check if the bot is already playing music
                 if voice.is_playing():
                     song_queue.append(url)
-                    await ctx.send(f"**Added to queue:** {song_title}")
+                    await interaction.response.send_message(f"**Added to queue:** {song_title}")
                 else:
-                    await ctx.send(f"**Now playing:** {song_title}")
-                    ctx.voice_client.play(discord.FFmpegPCMAudio(
-                        song_url, **ffmpeg_options), after=lambda e: bot.loop.create_task(play_next(ctx)))
+                    await interaction.response.send_message(f"**Now playing:** {song_title}")
+                    voice.play(discord.FFmpegPCMAudio(song_url, **ffmpeg_options),
+                               after=lambda e: bot.loop.create_task(play_next(interaction)))
 
             else:
-                await ctx.send("You need to be in a voice channel to play music!")
+                await interaction.response.send_message("You need to be in a voice channel to play music!", ephemeral=False)
 
     except Exception as e:
-        await ctx.send(f"Error: {str(e)}")
+        await interaction.response.send_message(f"Error: {str(e)}", ephemeral=False)
 
 
-@bot.command(name="stop", help="Stops the music but stays in the voice channel")
-async def stop(ctx):
-    if ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send("**Music stopped.**")
+@bot.slash_command(name="stop", description="Stops the music but stays in the voice channel.")
+async def stop(interaction: discord.Interaction) -> None:
+    voice_client = interaction.guild.voice_client
+
+    if voice_client and voice_client.is_playing():
+        voice_client.stop()
+        await interaction.response.send_message("**Music stopped.**")
     else:
-        await ctx.send("**No music is currently playing, starting the next one.**")
+        await interaction.response.send_message("**No music is currently playing, starting the next one.**")
         if song_queue:
-            play_next(ctx)
+            await play_next(interaction)
 
 
-@bot.command(name="skip", help="Skips the current song")
-async def skip(ctx):
-    if ctx.voice_client.is_playing() and song_queue:
-        ctx.voice_client.stop()
-        await ctx.send("**Skipped**")
-        await play_next(ctx)  # Make sure to await the function
-print("a")
+@bot.slash_command(name="skip", description="Skips the current song.")
+async def skip(interaction: discord.Interaction) -> None:
+    voice_client = interaction.guild.voice_client
+
+    if voice_client and voice_client.is_playing() and song_queue:
+        voice_client.stop()
+        await interaction.response.send_message("**Skipped**")
+        await play_next(interaction)
+    else:
+        await interaction.response.send_message("**No song is playing to skip.**", ephemeral=False)
 
 
-@bot.command(name="queue", help="Displays the queue")
-async def queue(ctx):
+@bot.slash_command(name="queue", description="Displays the current music queue.")
+async def queue(interaction: discord.Interaction) -> None:
     print(song_queue)
     if song_queue:
         song_titles = []
@@ -133,43 +155,28 @@ async def queue(ctx):
             with yt_dlp.YoutubeDL({'format': 'bestaudio'}) as ydl:
                 song_info = ydl.extract_info(song, download=False)
                 song_titles.append(song_info['title'])
-        await ctx.send("**Queue:**")
-        await ctx.send("\n".join(song_titles))
+
+        await interaction.response.send_message("**Queue:**")
+        await interaction.followup.send("\n".join(song_titles))
     else:
-        await ctx.send("**No songs in queue.**")
+        await interaction.response.send_message("**No songs in queue.**", ephemeral=False)
 
 
-@bot.command(name="test", help="test")
-async def test(ctx, url, timestamp):
-    ffmpeg_options = {
-        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
-    ydl_opts = {'format': 'bestaudio'}
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        song_info = ydl.extract_info(url, download=False)
-        song_url = song_info["url"]
-    timestamp_converted = convert_timestamp_to_seconds(timestamp)
-    await ctx.send(timestamp_converted)
-    song_url = f"{song_url}&t={timestamp_converted}"
-    await ctx.send(song_url)
-    voice_channel = ctx.author.voice.channel
-    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-    voice = await voice_channel.connect()
-    ctx.voice_client.play(discord.FFmpegPCMAudio(
-        song_url, **ffmpeg_options))
-
-
-@bot.command(name="loop", help="Loops the current song")
-async def loop(ctx):
+@bot.slash_command(name="loop", description="Toggles looping of the current song.")
+async def loop(interaction: discord.Interaction) -> None:
     global loop_enabled
     loop_enabled = not loop_enabled  # Toggle the loop state
+
     if loop_enabled:
-        await ctx.send("**Looping enabled**")
+        await interaction.response.send_message("**Looping enabled**")
     else:
-        await ctx.send("**Looping disabled**")
+        await interaction.response.send_message("**Looping disabled**")
 
 
-async def play_next(ctx, l=0):
-    if loop_enabled and ctx.voice_client.is_playing():
+async def play_next(interaction: discord.Interaction, l=0):
+    if not song_queue:
+        return
+    if loop_enabled and interaction.guild.voice_client.is_playing():
         # Get the current song that's playing
         current_song = song_queue[0] if song_queue else None
 
@@ -177,9 +184,9 @@ async def play_next(ctx, l=0):
             with yt_dlp.YoutubeDL({'format': 'bestaudio'}) as ydl:
                 song_info = ydl.extract_info(current_song, download=False)
                 song_title = song_info['title']
-                await ctx.send(f"**Looping song:** {song_title}")
-                ctx.voice_client.play(discord.FFmpegPCMAudio(
-                    song_info["url"], options={'options': '-vn'}), after=lambda e: bot.loop.create_task(play_next(ctx)))
+                await interaction.followup.send(f"**Looping song:** {song_title}")
+                interaction.guild.voice_client.play(discord.FFmpegPCMAudio(
+                    song_info["url"], options={'options': '-vn'}), after=lambda e: bot.loop.create_task(play_next(interaction)))
         return
 
     if song_queue:
@@ -187,9 +194,9 @@ async def play_next(ctx, l=0):
         with yt_dlp.YoutubeDL({'format': 'bestaudio'}) as ydl:
             song_info = ydl.extract_info(next_song, download=False)
             song_title = song_info['title']
-            await ctx.send(f"**Now playing:** {song_title}")
-            ctx.voice_client.play(discord.FFmpegPCMAudio(
-                song_info["url"], options={'options': '-vn'}), after=lambda e: bot.loop.create_task(play_next(ctx)))
+            await interaction.followup.send(f"**Now playing:** {song_title}")
+            interaction.guild.voice_client.play(discord.FFmpegPCMAudio(
+                song_info["url"], options={'options': '-vn'}), after=lambda e: bot.loop.create_task(play_next(interaction)))
 
 
 def convert_timestamp_to_seconds(timestamp):
