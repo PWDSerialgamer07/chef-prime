@@ -69,13 +69,15 @@ async def play(ctx, url, timestamp=None):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             song_info = ydl.extract_info(url, download=False)
             song_url = song_info["url"]
+            song_title = song_info['title']
             if timestamp:
                 converted_timestamp = convert_timestamp_to_seconds(timestamp)
                 if converted_timestamp:
-                    song_url += f"&t={converted_timestamp}"
+                    ffmpeg_options['before_options'] += f" -ss {converted_timestamp}"
+                    await ctx.send(url)
                 else:
-                    song_url += f"&t={timestamp}"
-            song_title = song_info['title']
+                    ffmpeg_options['before_options'] += f" -ss {timestamp}"
+                    await ctx.send(url)
 
             if ctx.author.voice:
                 voice_channel = ctx.author.voice.channel
@@ -135,6 +137,25 @@ async def queue(ctx):
         await ctx.send("\n".join(song_titles))
     else:
         await ctx.send("**No songs in queue.**")
+
+
+@bot.command(name="test", help="test")
+async def test(ctx, url, timestamp):
+    ffmpeg_options = {
+        'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5', 'options': '-vn'}
+    ydl_opts = {'format': 'bestaudio'}
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        song_info = ydl.extract_info(url, download=False)
+        song_url = song_info["url"]
+    timestamp_converted = convert_timestamp_to_seconds(timestamp)
+    await ctx.send(timestamp_converted)
+    song_url = f"{song_url}&t={timestamp_converted}"
+    await ctx.send(song_url)
+    voice_channel = ctx.author.voice.channel
+    voice = discord.utils.get(bot.voice_clients, guild=ctx.guild)
+    voice = await voice_channel.connect()
+    ctx.voice_client.play(discord.FFmpegPCMAudio(
+        song_url, **ffmpeg_options))
 
 
 @bot.command(name="loop", help="Loops the current song")
