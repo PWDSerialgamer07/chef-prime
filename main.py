@@ -187,8 +187,8 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
             playlist_title = result.get(
                 'title', 'Jte baise fdp ta playlist a pas de titre')
             await interaction.response.send_message(f"**Playlist added:** {playlist_title}", ephemeral=False)
-            for entry in result:
-                queue.append(entry['url'])
+            for entry in result['entries']:
+                song_queue.append(entry['url'])
                 await play_next(interaction)
         else:
             await interaction.response.send_message("**Playlist unavailable.**", ephemeral=False)
@@ -197,10 +197,9 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
 async def play_next(interaction: discord.Interaction, l=0):
     if not song_queue:
         return
-        # Ensure the user is in a voice channel
-    if not interaction.user.voice:
-        voice_channel = interaction.user.voice.channelvoice = discord.utils.get(
-            bot.voice_clients, guild=interaction.guild)
+    # Ensure the bot is connected to the voice channel
+    voice_channel = interaction.user.voice.channel
+    voice = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if voice and voice.is_connected():
         await voice.move_to(voice_channel)
     else:
