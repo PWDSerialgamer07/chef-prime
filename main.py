@@ -197,7 +197,7 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
         result = ydl.extract_info(url, download=False)
         if 'entries' in result:
             playlist_title = result.get(
-                'title', 'Jte baise fdp ta playlist a pas de titre')
+                'title', 'Unnamed playlist')
             await interaction.response.send_message(f"**Playlist added:** {playlist_title}", ephemeral=False)
             for entry in result['entries']:
                 song_queue.append(entry['url'])
