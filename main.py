@@ -31,7 +31,7 @@ async def sync(ctx):
     app_info = await bot.application_info()
     owner_id = app_info.owner.id
     if ctx.author.id == owner_id:
-        await bot.tree.sync()
+        await bot.sync_commands()
         await ctx.send('Command tree synced.')
     else:
         await ctx.send('You must be the owner to use this command!')
