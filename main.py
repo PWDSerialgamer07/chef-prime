@@ -74,6 +74,7 @@ async def leave(interaction: discord.Interaction) -> None:
 
 @bot.slash_command(name="play", description="Plays a song from YouTube.")
 async def play(interaction: discord.Interaction, url: str, timestamp: str = None) -> None:
+    await interaction.response.defer()
     ffmpeg_options = {
         'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
         'options': '-vn'
@@ -108,9 +109,9 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
                 # Check if the bot is already playing music
                 if voice.is_playing():
                     song_queue.append(url)
-                    await interaction.response.send_message(f"**Added to queue:** {song_title}")
+                    await interaction.followup.send(f"**Added to queue:** {song_title}")
                 else:
-                    await interaction.response.send_message(f"**Now playing:** {song_title}")
+                    await interaction.followup.send(f"**Now playing:** {song_title}")
                     voice.play(discord.FFmpegPCMAudio(song_url, **ffmpeg_options),
                                after=lambda e: bot.loop.create_task(play_next(interaction)))
 
@@ -136,14 +137,15 @@ async def stop(interaction: discord.Interaction) -> None:
 
 @bot.slash_command(name="skip", description="Skips the current song.")
 async def skip(interaction: discord.Interaction) -> None:
+    await interaction.response.defer()
     voice_client = interaction.guild.voice_client
 
     if voice_client and voice_client.is_playing() and song_queue:
         voice_client.stop()
-        await interaction.response.send_message("**Skipped**")
+        await interaction.followup.send("**Skipped**")
         await play_next(interaction)
     else:
-        await interaction.response.send_message("**No song is playing to skip.**", ephemeral=False)
+        await interaction.followup.send("**No song is playing to skip.**", ephemeral=False)
 
 
 @bot.slash_command(name="queue", description="Displays the current music queue.")
@@ -173,9 +175,37 @@ async def loop(interaction: discord.Interaction) -> None:
         await interaction.response.send_message("**Looping disabled**")
 
 
+@bot.slash_command(name="playlist", description="Plays a playlist from YouTube.")
+async def playlist(interaction: discord.Interaction, url: str) -> None:
+    ydl_opts = {
+        'extract_flat': True,  # This avoids downloading the videos and extracts URLs only
+        'skip_download': True,
+    }
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        result = ydl.extract_info(url, download=False)
+        if 'entries' in result:
+            playlist_title = result.get(
+                'title', 'Jte baise fdp ta playlist a pas de titre')
+            await interaction.response.send_message(f"**Playlist added:** {playlist_title}", ephemeral=False)
+            for entry in result:
+                queue.append(entry['url'])
+                await play_next(interaction)
+        else:
+            await interaction.response.send_message("**Playlist unavailable.**", ephemeral=False)
+
+
 async def play_next(interaction: discord.Interaction, l=0):
     if not song_queue:
         return
+        # Ensure the user is in a voice channel
+    if not interaction.user.voice:
+        voice_channel = interaction.user.voice.channelvoice = discord.utils.get(
+            bot.voice_clients, guild=interaction.guild)
+    if voice and voice.is_connected():
+        await voice.move_to(voice_channel)
+    else:
+        voice = await voice_channel.connect()
+
     if loop_enabled and interaction.guild.voice_client.is_playing():
         # Get the current song that's playing
         current_song = song_queue[0] if song_queue else None
