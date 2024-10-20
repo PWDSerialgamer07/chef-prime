@@ -193,17 +193,29 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
         'extract_flat': True,  # This avoids downloading the videos and extracts URLs only
         'skip_download': True,
     }
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(url, download=False)
-        if 'entries' in result:
-            playlist_title = result.get(
-                'title', 'Unnamed playlist')
-            await interaction.response.send_message(f"**Playlist added:** {playlist_title}", ephemeral=False)
-            for entry in result['entries']:
-                song_queue.append(entry['url'])
-                await play_next(interaction)
-        else:
-            await interaction.response.send_message("**Playlist unavailable.**", ephemeral=False)
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            result = ydl.extract_info(url, download=False)
+            if 'entries' in result:
+                playlist_title = result.get('title', 'Unnamed playlist')
+                await interaction.response.send_message(f"**Playlist added:** {playlist_title}", ephemeral=False)
+
+                # Iterate through the playlist entries
+                for entry in result['entries']:
+                    try:
+                        # Try to play the song, skipping if it's unavailable
+                        song_queue.append(entry['url'])
+                        await play_next(interaction)
+                    except yt_dlp.utils.DownloadError:
+                        # Handle unavailable videos
+                        await interaction.followup.send(f"**Skipped unavailable video:** {entry.get('title', 'Unknown title')}")
+            else:
+                await interaction.response.send_message("**Playlist unavailable.**", ephemeral=False)
+
+    except yt_dlp.utils.DownloadError as e:
+        # Handle the error for the entire playlist URL
+        await interaction.response.send_message(f"**Error retrieving playlist:** {str(e)}", ephemeral=False)
 
 
 async def play_next(interaction: discord.Interaction, l=0):
