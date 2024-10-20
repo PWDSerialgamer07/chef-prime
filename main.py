@@ -25,6 +25,18 @@ loop_enabled = 0
 song_queue = []
 
 
+# for syncing slash commands
+@bot.command(name="sync", description="Syncs the slash command tree with the bot.")
+async def sync(ctx):
+    app_info = await bot.application_info()
+    owner_id = app_info.owner.id
+    if ctx.author.id == owner_id:
+        await bot.tree.sync()
+        await ctx.send('Command tree synced.')
+    else:
+        await ctx.send('You must be the owner to use this command!')
+
+
 @bot.event
 async def on_ready():
     print(f'Bot connected as {bot.user}')
