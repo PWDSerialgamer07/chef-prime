@@ -219,6 +219,9 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
 
 
 async def play_next(interaction: discord.Interaction, l=0):
+    if interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
+        # If something is already playing, do nothing
+        return
     if not song_queue:
         return
     # Ensure the bot is connected to the voice channel
