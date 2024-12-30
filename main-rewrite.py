@@ -239,3 +239,6 @@ def convert_timestamp_to_seconds(timestamp):
     else:
         # If it doesn't match any format, return None
         return None
+
+
+bot.run(TOKEN)
