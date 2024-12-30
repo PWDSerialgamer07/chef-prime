@@ -86,16 +86,3 @@ class Logger:
             current_time = self.parent.get_current_time()
             log(f"[blue]{current_time}[/blue] [cyan][bold][DEBUG][/bold] {message}[/cyan]")
             self.parent.log_file.log(message, "DEBUG")
-
-
-# Example usage:
-logger = Logger(log_file_name="logs.txt", log_dir="my_logs", level="INFO")
-
-# Won't print because level is INFO
-logger.log_print.debug("This is a debug message.")
-logger.log_print.info("This is an info message.")   # Will print
-logger.log_print.warn("This is a warning message.")  # Will print
-logger.log_print.error("This is an error message.")  # Will print
-
-# Close the log file manually when done
-logger.log_file.close()
