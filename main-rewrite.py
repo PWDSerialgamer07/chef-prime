@@ -131,6 +131,7 @@ async def join(interaction: discord.Interaction) -> None:
         log_printer.error(f"Unexpected error: {e}")
 
 
+@bot.slash_command(name="play", description="Plays a song from YouTube.")
 async def play(interaction: discord.Interaction, url: str, timestamp: str = None) -> None:
     await interaction.response.defer()
     log_printer.info(
