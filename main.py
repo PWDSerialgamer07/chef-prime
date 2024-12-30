@@ -228,7 +228,7 @@ async def play_next(interaction: discord.Interaction, l=0):
     voice_channel = interaction.user.voice.channel
     voice = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if voice and voice.is_connected():
-        await voice.move_to(voice_channel)
+        await voice.move_to(voice_channel)  
     else:
         voice = await voice_channel.connect()
 
