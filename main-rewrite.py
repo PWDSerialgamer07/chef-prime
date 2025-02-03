@@ -139,7 +139,7 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
     try:
         # Attempt to download and play the song
         url_queue.append(url, timestamp)
-        play_next(interaction)
+        await play_next(interaction)
     except yt_dlp.utils.DownloadError as e:
         await interaction.followup.send(f"Failed to download audio from the URL: {e}", ephemeral=True)
         log_printer.error(f"Download error: {e}")
