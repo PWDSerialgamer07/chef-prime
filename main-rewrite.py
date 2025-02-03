@@ -240,8 +240,8 @@ def convert_timestamp_to_seconds(timestamp):
         return seconds
 
     else:
-        # If it doesn't match any format, return None
-        return None
+        # If it doesn't match any format, return 0
+        return "0"
 
 
 bot.run(TOKEN)
