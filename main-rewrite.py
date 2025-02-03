@@ -75,7 +75,7 @@ class queue:
         """To check if the queue is empty
         Returns True if the queue is empty, False if it contains something
         """
-        return bool(self.playlist)
+        return bool(self.queue)
 
 
 url_queue = queue()
