@@ -69,13 +69,13 @@ class queue:
                  for index, video in enumerate(self.queue)])
             return queue_str
         else:
-            return None
+            return "Queue is empty"
 
     def is_empty(self):
         """To check if the queue is empty
         Returns True if the queue is empty, False if it contains something
         """
-        return bool(self.queue)
+        return not self.queue
 
 
 url_queue = queue()
@@ -138,6 +138,8 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
         f"Received play command from {interaction.user.name} with URL: {url}")
     try:
         # Attempt to download and play the song
+        timestamp = convert_timestamp_to_seconds(timestamp)
+        print(url)
         url_queue.append(url, timestamp)
         await play_next(interaction)
     except yt_dlp.utils.DownloadError as e:
