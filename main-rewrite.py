@@ -100,7 +100,7 @@ async def on_ready():
         await bot.sync_commands()
         log_printer.info(f"Synced commands")
     except Exception as e:
-        log_printer.error(f"Error syncing commands: {e}")
+        log_printer.error(f"Error syncing commands: {e}", e)
 
 
 @bot.slash_command(name="join", description="Tells the bot to join the voice channel.")
@@ -125,10 +125,10 @@ async def join(interaction: discord.Interaction) -> None:
         log_printer.error(f"Permission error: Cannot join {channel.name}")
     except discord.errors.ClientException as e:
         await interaction.followup.send(f"Failed to connect: {e}", ephemeral=True)
-        log_printer.error(f"Error connecting to {channel.name}: {e}")
+        log_printer.error(f"Error connecting to {channel.name}: {e}", e)
     except Exception as e:
         await interaction.followup.send(f"Failed to connect to {channel.name}: {e}", ephemeral=True)
-        log_printer.error(f"Unexpected error: {e}")
+        log_printer.error(f"Unexpected error: {e}", e)
 
 
 @bot.slash_command(name="play", description="Plays a song from YouTube.")
@@ -144,10 +144,10 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
         await play_next(interaction)
     except yt_dlp.utils.DownloadError as e:
         await interaction.followup.send(f"Failed to download audio from the URL: {e}", ephemeral=True)
-        log_printer.error(f"Download error: {e}")
+        log_printer.error(f"Download error: {e}", e)
     except Exception as e:
         await interaction.followup.send(f"An error occurred while trying to play the song: {e}", ephemeral=True)
-        log_printer.error(f"Unexpected error in play command: {e}")
+        log_printer.error(f"Unexpected error in play command: {e}", e)
 
 
 async def play_next(interaction: discord.Interaction, l=0):
