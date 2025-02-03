@@ -149,11 +149,6 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
 
 
 async def play_next(interaction: discord.Interaction, l=0):
-    if interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
-        # If something is already playing, do nothing
-        return
-    if url_queue.is_empty():  # If the queue is empty, return nothing
-        return
     # Ensure the bot is connected to the voice channel
     voice_channel = interaction.user.voice.channel
     voice = discord.utils.get(bot.voice_clients, guild=interaction.guild)
@@ -161,6 +156,11 @@ async def play_next(interaction: discord.Interaction, l=0):
         await voice.move_to(voice_channel)
     else:
         voice = await voice_channel.connect()
+    if interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
+        # If something is already playing, do nothing
+        return
+    if url_queue.is_empty():  # If the queue is empty, return nothing
+        return
     next_song = url_queue.pop()
     timestamp = next_song['timestamp']
 
