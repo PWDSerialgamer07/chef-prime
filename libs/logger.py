@@ -4,7 +4,7 @@ from rich.console import Console
 import datetime
 import os
 import traceback
-from traceback import FrameSummary
+import sys
 
 
 class Logger:
@@ -107,7 +107,7 @@ class Logger:
             """
             self.parent = parent
 
-        def error(self, message: str, Excetion: Exception = None) -> None:
+        def error(self, message: str, error: Exception = None) -> None:
             """
             Logs an error message, prints it to the console, and writes it to the log file.
 
@@ -117,16 +117,13 @@ class Logger:
             if not self.parent.should_log("ERROR"):
                 return
             current_time = self.parent.get_current_time()
-            if Exception:
+            if error:
                 # Extract the traceback from the exception and get the last frame (where the error happened)
-                tb = traceback.extract_tb(Exception.__traceback__)[-1]
-                file_info = f"(File: {tb.filename}, Line: {tb.lineno}, Function: {tb.name})"
+                tb = traceback.extract_tb(error.__traceback__)[-1]
+                file_info = f"(File: {tb.filename}, Line: {tb.lineno}, Function: {tb.name}, Error: {error})"
             else:
-                # If no exception is provided, use the caller's location (fallback)
-                tb = traceback.extract_stack()[-2]
-            file_info = f"(File: {tb.filename}, Line: {tb.lineno})"
-            tb = traceback.extract_stack()[-2]  # Get the caller's line info
-            log(f"[blue]{current_time}[/blue] [red][bold][ERROR][/bold] {message}{file_info}[/red]")
+                file_info = ""
+            log(f"[blue]{current_time}[/blue] [red][bold][ERROR][/bold] {message} {file_info}[/red]")
             self.parent.log_file.log(message, "ERROR", file_info)
 
         def info(self, message: str) -> None:

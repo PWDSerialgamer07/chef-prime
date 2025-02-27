@@ -28,12 +28,13 @@ os.makedirs(temp_folder, exist_ok=True)
 downloaded_file_path = None  # Variable to store the file path
 # ffmpeg and ytdlp options
 ffmpeg_options = {
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    #'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 ydl_opts = {
     'format': 'bestaudio',
     'outtmpl': os.path.join(temp_folder, '%(title)s.%(ext)s'),
+    'options': '-mn'
 }
 
 
@@ -139,7 +140,6 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
     try:
         # Attempt to download and play the song
         timestamp = convert_timestamp_to_seconds(timestamp)
-        print(url)
         url_queue.append(url, timestamp)
         await play_next(interaction)
     except yt_dlp.utils.DownloadError as e:
@@ -166,23 +166,34 @@ async def play_next(interaction: discord.Interaction, l=0):
     next_song = url_queue.pop()
     timestamp = next_song['timestamp']
 
-    def on_download_complete(d):
-        global downloaded_file_path
-        downloaded_file_path = d['filename']  # Store the file path
-        log_printer.info(f"Download complete! File saved to: {d['filename']}")
-
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.add_post_processor(on_download_complete)
-        ydl.download(next_song['url'])
+        info_dict = ydl.extract_info(next_song['url'], download=True)  # `download=True` ensures the file is saved
+        downloaded_file_path = ydl.prepare_filename(info_dict)  # Gets the expected file path
+        song_info = ydl.extract_info(next_song['url'], download=False)
+        await interaction.followup.send(f"Now playing: {song_info['title']}")
+        log_printer.info(f"Now playing: {song_info['title']}")
+    ffmpeg_options_copy = ffmpeg_options.copy() # So we don't change the global version
     if timestamp:
         converted_timestamp = convert_timestamp_to_seconds(timestamp)
         if converted_timestamp:
-            ffmpeg_options['before_options'] += f" -ss {converted_timestamp}"
+            ffmpeg_options_copy['before_options'] += f" -ss {converted_timestamp}"
         else:
-            ffmpeg_options['before_options'] += f" -ss {timestamp}"
+            ffmpeg_options_copy['before_options'] += f" -ss {timestamp}"
     if downloaded_file_path:
-        await voice.play(discord.FFmpegPCMAudio(downloaded_file_path, **ffmpeg_options),
-                         after=lambda e: bot.loop.create_task(play_next(interaction)))
+        def after_callback(error): # Using lambda for this wasn't worthwile tbh
+            if error:
+                if isinstance(error, Exception):
+                    log_printer.error(f"Playback error: {error}", error)
+                else:
+                    log_printer.error(f"Playback Error (non exception): {error}")
+            try:
+                os.remove(downloaded_file_path)
+                log_printer.info(f"Deleted temporary file {downloaded_file_path}")
+            except Exception as e:
+                log_printer.error(f"Could not delete temporary file: {e}", e)
+            bot.loop.create_task(play_next(interaction))
+        voice.play(discord.FFmpegPCMAudio(downloaded_file_path, **ffmpeg_options),
+                   after=after_callback)
 
 
 @bot.slash_command(name="playlist", description="Plays a playlist from YouTube.")
@@ -216,6 +227,8 @@ def convert_timestamp_to_seconds(timestamp):
     pattern_hms = r"^\d{1,2}:\d{2}:\d{2}$"  # HH:MM:SS
     pattern_ms = r"^\d{1,2}:\d{2}$"         # MM:SS
     pattern_s = r"^\d{1,2}$"                # SS
+    if not isinstance(timestamp, str):  # Ensure it's a string
+        return 0  # Or handle differently, depending on your needs
 
     if re.match(pattern_hms, timestamp):
         # Split and convert "HH:MM:SS"
