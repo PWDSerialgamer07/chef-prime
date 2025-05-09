@@ -28,7 +28,7 @@ os.makedirs(temp_folder, exist_ok=True)
 downloaded_file_path = None  # Variable to store the file path
 # ffmpeg and ytdlp options
 ffmpeg_options = {
-    #'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    # 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 ydl_opts = {
@@ -159,7 +159,9 @@ async def play_next(interaction: discord.Interaction, l=0):
     else:
         voice = await voice_channel.connect()
     if interaction.guild.voice_client.is_playing() or interaction.guild.voice_client.is_paused():
-        # If something is already playing, do nothing
+        # If something is already playing, do nothing, and inform the user (it was added to the queue before play_next was called)
+        await interaction.followup.send("Added to queue", ephemeral=True)
+        log_printer.info("Added to queue")
         return
     if url_queue.is_empty():  # If the queue is empty, return nothing
         return
@@ -167,12 +169,15 @@ async def play_next(interaction: discord.Interaction, l=0):
     timestamp = next_song['timestamp']
 
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        info_dict = ydl.extract_info(next_song['url'], download=True)  # `download=True` ensures the file is saved
-        downloaded_file_path = ydl.prepare_filename(info_dict)  # Gets the expected file path
+        # `download=True` ensures the file is saved
+        info_dict = ydl.extract_info(next_song['url'], download=True)
+        downloaded_file_path = ydl.prepare_filename(
+            info_dict)  # Gets the expected file path
         song_info = ydl.extract_info(next_song['url'], download=False)
         await interaction.followup.send(f"Now playing: {song_info['title']}")
         log_printer.info(f"Now playing: {song_info['title']}")
-    ffmpeg_options_copy = ffmpeg_options.copy() # So we don't change the global version
+    # So we don't change the global version
+    ffmpeg_options_copy = ffmpeg_options.copy()
     if timestamp:
         converted_timestamp = convert_timestamp_to_seconds(timestamp)
         if converted_timestamp:
@@ -180,15 +185,17 @@ async def play_next(interaction: discord.Interaction, l=0):
         else:
             ffmpeg_options_copy['before_options'] += f" -ss {timestamp}"
     if downloaded_file_path:
-        def after_callback(error): # Using lambda for this wasn't worthwile tbh
+        def after_callback(error):  # Using lambda for this wasn't worthwile tbh
             if error:
                 if isinstance(error, Exception):
                     log_printer.error(f"Playback error: {error}", error)
                 else:
-                    log_printer.error(f"Playback Error (non exception): {error}")
+                    log_printer.error(
+                        f"Playback Error (non exception): {error}")
             try:
                 os.remove(downloaded_file_path)
-                log_printer.info(f"Deleted temporary file {downloaded_file_path}")
+                log_printer.info(
+                    f"Deleted temporary file {downloaded_file_path}")
             except Exception as e:
                 log_printer.error(f"Could not delete temporary file: {e}", e)
             bot.loop.create_task(play_next(interaction))
