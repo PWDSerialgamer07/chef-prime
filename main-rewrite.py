@@ -137,6 +137,10 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
     await interaction.response.defer()
     log_printer.info(
         f"Received play command from {interaction.user.name} with URL: {url}")
+    if url.startswith("https://www.youtube.com/playlist?list="):
+        log_printer.warn(
+            f"Received playlist URL: {url} with play command, passing to playlist function")
+        await playlist(interaction, url)
     try:
         # Attempt to download and play the song
         timestamp = convert_timestamp_to_seconds(timestamp)
