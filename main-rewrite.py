@@ -8,6 +8,7 @@ import nacl
 import re
 from libs import *
 import asyncio
+import copy
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -134,13 +135,14 @@ async def join(interaction: discord.Interaction) -> None:
 
 @bot.slash_command(name="play", description="Plays a song from YouTube.")
 async def play(interaction: discord.Interaction, url: str, timestamp: str = None) -> None:
-    await interaction.response.defer()
     log_printer.info(
         f"Received play command from {interaction.user.name} with URL: {url}")
-    if url.startswith("https://www.youtube.com/playlist?list="):
+    if "playlist" in url:
         log_printer.warn(
             f"Received playlist URL: {url} with play command, passing to playlist function")
         await playlist(interaction, url)
+        return
+    await interaction.response.defer()
     try:
         # Attempt to download and play the song
         timestamp = convert_timestamp_to_seconds(timestamp)
@@ -209,21 +211,25 @@ async def play_next(interaction: discord.Interaction, l=0):
 
 @bot.slash_command(name="playlist", description="Plays a playlist from YouTube.")
 async def playlist(interaction: discord.Interaction, url: str) -> None:
+    playlist_ydlp_ops = ydl_opts.copy()
+    playlist_ydlp_ops["extract_flat"]= True
+    await interaction.response.defer()
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        with yt_dlp.YoutubeDL(playlist_ydlp_ops) as ydl:
             result = ydl.extract_info(url, download=False)
             if 'entries' in result:
                 playlist_title = result.get('title', 'Unnamed playlist')
-                await interaction.response.send_message(f"**Playlist added:** {playlist_title}", ephemeral=False)
+                await interaction.followup.send(f"**Playlist added:** {playlist_title}", ephemeral=False)
                 log_printer.info(f"Playlist added: {playlist_title}")
                 for entry in result['entries']:
-                    try:
-                        url_queue.append(entry['url'], 0)
-                        await play_next(interaction)
-                    except yt_dlp.utils.DownloadError:
-                        await interaction.followup.send(f"**Skipped unavailable video:** {entry.get('title', 'Unknown title')}")
-                        log_printer.warn(
-                            f"**Skipped unavailable video:** {entry.get('title', 'Unknown title')}")
+                    url_queue.append(entry['url'], 0)
+                try:
+                    await play_next(interaction)
+                except yt_dlp.utils.DownloadError:
+                    await interaction.followup.send(f"**Skipped unavailable video:** {entry.get('title', 'Unknown title')}")
+                    log_printer.warn(
+                        f"**Skipped unavailable video:** {entry.get('title', 'Unknown title')}")
+                    await play_next(interaction)
             else:
                 await interaction.response.send_message("**Playlist unavailable.**", ephemeral=False)
                 log_printer.error("Playlist unavailable")
