@@ -6,7 +6,10 @@ A simple discord bot for playing youtube videos with support for slash commands,
 ```
 pip install -R requirements.txt
 ```
-2. Edit .env with your bot's discord token
+2. Edit .env with your bot's discord token, it should look like this:
+```
+DISCORD_TOKEN={your token here}
+```
 3. Launch either "main.py" or "main-rewrite.py"
 
 ## What's the difference between the rewrite and the other version?
