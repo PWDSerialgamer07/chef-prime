@@ -137,7 +137,7 @@ async def join(interaction: discord.Interaction) -> None:
 async def play(interaction: discord.Interaction, url: str, timestamp: str = None) -> None:
     log_printer.info(
         f"Received play command from {interaction.user.name} with URL: {url}")
-    if "playlist" in url:
+    if "list" in url:
         log_printer.warn(
             f"Received playlist URL: {url} with play command, passing to playlist function")
         await playlist(interaction, url)
