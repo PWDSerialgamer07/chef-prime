@@ -244,25 +244,25 @@ async def skip(interaction: discord.Interaction) -> None:
     voice = discord.utils.get(bot.voice_clients, guild=interaction.guild)
     if voice and voice.is_playing():
         voice.stop()
-        await interaction.response.send_message("Skipped", ephemeral=True)
+        await interaction.response.send_message("Skipped", ephemeral=False)
         log_printer.info("Skipped")
         await play_next(interaction)
     else:
-        await interaction.response.send_message("Nothing to skip", ephemeral=True)
+        await interaction.response.send_message("Nothing to skip", ephemeral=False)
         log_printer.info("Nothing to skip")
 
 
 @bot.slash_command(name="queue", description="Shows the current queue.")
 async def queue(interaction: discord.Interaction) -> None:
     if url_queue.is_empty():
-        await interaction.response.send_message("Queue is empty", ephemeral=True)
+        await interaction.response.send_message("Queue is empty", ephemeral=False)
         log_printer.info("Queue is empty")
         return
     else:
         queue_str = "Queue:\n"
         queue_str += url_queue.display()
-        await interaction.response.send_message(queue_str, ephemeral=True)
-        log_printer.info(queue_str)
+        await interaction.response.send_message(queue_str, ephemeral=False)
+        log_printer.info("Queue displayed")
 
 
 @bot.slash_command(name="stop", description="Stop the currently playing song and leave the voice channel/")
@@ -271,10 +271,10 @@ async def stop(interaction: discord.Interaction) -> None:
     if voice and voice.is_playing():
         voice.stop()
         voice.disconnect()
-        await interaction.response.send_message("Stopped", ephemeral=True)
+        await interaction.response.send_message("Stopped", ephemeral=False)
         log_printer.info("Stopped")
     else:
-        await interaction.response.send_message("Nothing to stop", ephemeral=True)
+        await interaction.response.send_message("Nothing to stop", ephemeral=False)
         log_printer.info("Nothing to stop")
 
 
