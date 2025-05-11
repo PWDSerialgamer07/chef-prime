@@ -234,7 +234,7 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
                         f"**Skipped unavailable video:** {entry.get('title', 'Unknown title')}")
                     await play_next(interaction)
             else:
-                await interaction.response.send_message("**Playlist unavailable.**", ephemeral=False)
+                await interaction.followup.send("**Playlist unavailable.**", ephemeral=False)
                 log_printer.error("Playlist unavailable")
 
     except yt_dlp.utils.DownloadError as e:
