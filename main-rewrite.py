@@ -212,7 +212,7 @@ async def play_next(interaction: discord.Interaction, l=0):
 @bot.slash_command(name="playlist", description="Plays a playlist from YouTube.")
 async def playlist(interaction: discord.Interaction, url: str) -> None:
     playlist_ydlp_ops = ydl_opts.copy()
-    playlist_ydlp_ops["extract_flat"]= True
+    playlist_ydlp_ops["extract_flat"] = True
     await interaction.response.defer()
     try:
         with yt_dlp.YoutubeDL(playlist_ydlp_ops) as ydl:
@@ -237,6 +237,45 @@ async def playlist(interaction: discord.Interaction, url: str) -> None:
     except yt_dlp.utils.DownloadError as e:
         await interaction.response.send_message(f"**Error retrieving playlist:** {str(e)}", ephemeral=False)
         log_printer.error(f"Error retrieving playlist: {str(e)}")
+
+
+@bot.slash_command(name="skip", description="Skips the current song.")
+async def skip(interaction: discord.Interaction) -> None:
+    voice = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+    if voice and voice.is_playing():
+        voice.stop()
+        await interaction.response.send_message("Skipped", ephemeral=True)
+        log_printer.info("Skipped")
+        await play_next(interaction)
+    else:
+        await interaction.response.send_message("Nothing to skip", ephemeral=True)
+        log_printer.info("Nothing to skip")
+
+
+@bot.slash_command(name="queue", description="Shows the current queue.")
+async def queue(interaction: discord.Interaction) -> None:
+    if url_queue.is_empty():
+        await interaction.response.send_message("Queue is empty", ephemeral=True)
+        log_printer.info("Queue is empty")
+        return
+    else:
+        queue_str = "Queue:\n"
+        queue_str += url_queue.display()
+        await interaction.response.send_message(queue_str, ephemeral=True)
+        log_printer.info(queue_str)
+
+
+@bot.slash_command(name="stop", description="Stop the currently playing song and leave the voice channel/")
+async def stop(interaction: discord.Interaction) -> None:
+    voice = discord.utils.get(bot.voice_clients, guild=interaction.guild)
+    if voice and voice.is_playing():
+        voice.stop()
+        voice.disconnect()
+        await interaction.response.send_message("Stopped", ephemeral=True)
+        log_printer.info("Stopped")
+    else:
+        await interaction.response.send_message("Nothing to stop", ephemeral=True)
+        log_printer.info("Nothing to stop")
 
 
 def convert_timestamp_to_seconds(timestamp):
