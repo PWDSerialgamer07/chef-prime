@@ -55,6 +55,9 @@ class queue:
         """
         self.queue.append({"url": url, "timestamp": timestamp})
 
+    def clear(self):
+        self.queue.clear()
+
     def pop(self):
         """Removes and returns the first element from the queue."""
         if self.queue:
@@ -263,6 +266,13 @@ async def queue(interaction: discord.Interaction) -> None:
         queue_str += url_queue.display()
         await interaction.response.send_message(queue_str, ephemeral=False)
         log_printer.info("Queue displayed")
+
+
+@bot.slash_command(name="clear", description="Clears the queue.")
+async def clear(interaction: discord.Interaction) -> None:
+    url_queue.clear()
+    await interaction.response.send_message("Queue cleared", ephemeral=False)
+    log_printer.info("Queue cleared")
 
 
 @bot.slash_command(name="stop", description="Stop the currently playing song and leave the voice channel/")
