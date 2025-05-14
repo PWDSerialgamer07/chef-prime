@@ -177,14 +177,22 @@ async def play_next(interaction: discord.Interaction, l=0):
     next_song = url_queue.pop()
     timestamp = next_song['timestamp']
 
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        # `download=True` ensures the file is saved
-        info_dict = ydl.extract_info(next_song['url'], download=True)
-        downloaded_file_path = ydl.prepare_filename(
-            info_dict)  # Gets the expected file path
-        song_info = ydl.extract_info(next_song['url'], download=False)
-        await interaction.followup.send(f"Now playing: {song_info['title']}")
-        log_printer.info(f"Now playing: {song_info['title']}")
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            # `download=True` ensures the file is saved
+            info_dict = ydl.extract_info(next_song['url'], download=True)
+            downloaded_file_path = ydl.prepare_filename(
+                info_dict)  # Gets the expected file path
+            song_info = ydl.extract_info(next_song['url'], download=False)
+            try:
+                await interaction.followup.send(f"Now playing: {song_info['title']}")
+            except Exception as e:
+                log_printer.error("Failed to send message", e)
+            log_printer.info(f"Now playing: {song_info['title']}")
+    except Exception as e:
+        await interaction.followup.send(
+            f"Failed to download audio from the URL: {e}", ephemeral=True)
+        log_printer.error(f"Download error: {e}", e)
     # So we don't change the global version
     ffmpeg_options_copy = ffmpeg_options.copy()
     if timestamp:
@@ -281,8 +289,9 @@ async def stop(interaction: discord.Interaction) -> None:
     if voice and voice.is_playing():
         voice.stop()
         voice.disconnect()
-        await interaction.response.send_message("Stopped", ephemeral=False)
-        log_printer.info("Stopped")
+        url_queue.clear()
+        await interaction.response.send_message("Stopped and queue cleared.", ephemeral=False)
+        log_printer.info("Stopped and queue cleared.")
     else:
         await interaction.response.send_message("Nothing to stop", ephemeral=False)
         log_printer.info("Nothing to stop")
@@ -320,7 +329,7 @@ def convert_timestamp_to_seconds(timestamp):
 
     else:
         # If it doesn't match any format, return 0
-        return "0"
+        return 0
 
 
 bot.run(TOKEN)

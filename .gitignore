@@ -3,3 +3,4 @@ libs
 temp
 logs
 venv
+/.venv
