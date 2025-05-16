@@ -9,6 +9,7 @@ import re
 from libs import *
 import asyncio
 import copy
+import random
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -21,15 +22,21 @@ intents.message_content = True
 # Create bot instance with command prefix and make slash command tree
 bot = commands.Bot(command_prefix=">", intents=intents)
 # initialize logger
-logger = Logger()
-log_printer = logger.LogPrint(logger)
+# Why am I doing this? because I realised by default all the logs are going to one file, and just naming them with a date doesn't work, since (I'm assuming) the bot would
+# Be run for days at a time, so naming the file with a date won't work. And I chose these names because why not, who cares
+log_file_names: list = ["yuki", "sakura", "mikasa", "miku", "asuka", "rei", "misato", "hinata", "tohru", "zero", "rem",
+                        "ram", "emilia", "aqua", "nami", "lucy", "erza", "asuna", "misaka", "saber", "rin", "mai", "nezuko", "ichigo"]
+log_name: str = "logs_" + \
+    log_file_names[random.randint(0, len(log_file_names) - 1)]
+logger = Logger(log_file_name=log_name)
+log_printer = logger.log_print()
 # temp folder for downloading audios
 temp_folder = "temp"
 os.makedirs(temp_folder, exist_ok=True)
 downloaded_file_path = None  # Variable to store the file path
 # ffmpeg and ytdlp options
 ffmpeg_options = {
-    # 'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5',
     'options': '-vn'
 }
 ydl_opts = {
@@ -183,12 +190,11 @@ async def play_next(interaction: discord.Interaction, l=0):
             info_dict = ydl.extract_info(next_song['url'], download=True)
             downloaded_file_path = ydl.prepare_filename(
                 info_dict)  # Gets the expected file path
-            song_info = ydl.extract_info(next_song['url'], download=False)
             try:
-                await interaction.followup.send(f"Now playing: {song_info['title']}")
+                await interaction.followup.send(f"Now playing: {info_dict['title']}")
             except Exception as e:
                 log_printer.error("Failed to send message", e)
-            log_printer.info(f"Now playing: {song_info['title']}")
+            log_printer.info(f"Now playing: {info_dict['title']}")
     except Exception as e:
         await interaction.followup.send(
             f"Failed to download audio from the URL: {e}", ephemeral=True)
