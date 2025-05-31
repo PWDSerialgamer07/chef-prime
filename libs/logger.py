@@ -1,10 +1,10 @@
 import rich
-from rich import print as log
 from rich.console import Console
 import datetime
 import os
 import traceback
 import sys
+import weakref
 
 
 class Logger:
@@ -27,7 +27,12 @@ class Logger:
         self.console = Console()
         self.log_file_name = log_file_name
         self.log_directory = log_dir
-        self.level = level
+        normalized: str = level.upper()
+        if normalized not in Logger.LEVELS:
+            valid = ", ".join(Logger.LEVELS.keys())
+            raise ValueError(
+                f"Invalid log level '{level}'. Valid values are: {valid}")  # So we actually know what the error is here
+        self.level = normalized
         os.makedirs(self.log_directory, exist_ok=True)
         self.log_file = self.LogFile(self)  # Initialize the LogFile
         self.log_print = self.LogPrint(self)
@@ -53,6 +58,28 @@ class Logger:
         """
         return self.LEVELS[log_type] >= self.LEVELS[self.level]
 
+    def __enter__(self) -> "Logger":
+        """
+        Context manager support
+        """
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
+        """
+        Context manager support
+        """
+        self.close()
+        return False
+
+    def close(self) -> None:
+        """
+        Closes the log file when the logger is no longer needed.
+        """
+        try:
+            self.log_file.close()
+        except AttributeError:
+            pass
+
     class LogFile:
         def __init__(self, parent: "Logger") -> None:
             """
@@ -61,22 +88,24 @@ class Logger:
             Parameters:
             parent (Logger): The parent Logger object.
             """
-            self.parent = parent
+            self.parent = weakref.proxy(
+                parent)  # This part is a bit murky to me,but from what I understand should make it so that the log file doesn't have an extra reference and thus gets deleted by the GC when it's not used
             self.log_file_path = os.path.join(
                 self.parent.log_directory, self.parent.log_file_name)
-            self.file = open(self.log_file_path, "a+")
+            self.file = open(self.log_file_path, "a+", encoding="utf-8")
 
-        def log(self, message: str, log_type: str, file_info: str = None) -> None:
+        def log(self, message: str, log_type: str, current_time: str, file_info: str = None) -> None:
             """
             Writes the log entry to the file if the current log level allows it.
 
             Parameters:
             message (str): The log message.
             log_type (str): The type of the log message (e.g., "DEBUG", "INFO", "WARN", "ERROR").
+            file_info (str): Additional information about the log entry related to the exception which caused it (optional)
+            current_time (str): The current time in "YYYY-MM-DD|HH:MM:SS" format, used for the log entry (not recalculated to avoid different time in the console and the file)
             """
             if not self.parent.should_log(log_type):
                 return
-            current_time = self.parent.get_current_time()
             if file_info:
                 self.file.write(
                     f"{current_time} [{log_type}] {message} {file_info}\n")
@@ -89,7 +118,10 @@ class Logger:
             """
             Closes the log file when the logger is no longer needed.
             """
-            self.file.close()
+            try:  # In case of double close or something
+                self.file.close()
+            except AttributeError:
+                pass
 
         def __del__(self) -> None:
             """
@@ -113,18 +145,20 @@ class Logger:
 
             Parameters:
             message (str): The error message to log.
+            error (Exception): The exception that caused the error (optional).
             """
             if not self.parent.should_log("ERROR"):
                 return
             current_time = self.parent.get_current_time()
-            if error:
+            if error and error.__traceback__:
                 # Extract the traceback from the exception and get the last frame (where the error happened)
-                tb = traceback.extract_tb(error.__traceback__)[-1]
+                tb = traceback.extract_tb(error.__traceback__)[0]
                 file_info = f"(File: {tb.filename}, Line: {tb.lineno}, Function: {tb.name}, Error: {error})"
             else:
                 file_info = ""
-            log(f"[blue]{current_time}[/blue] [red][bold][ERROR][/bold] {message} {file_info}[/red]")
-            self.parent.log_file.log(message, "ERROR", file_info)
+            self.parent.console.print(
+                f"[blue]{current_time}[/blue] [red][bold][ERROR][/bold] {message} {file_info}[/red]")
+            self.parent.log_file.log(message, "ERROR", current_time, file_info)
 
         def info(self, message: str) -> None:
             """
@@ -136,8 +170,9 @@ class Logger:
             if not self.parent.should_log("INFO"):
                 return
             current_time = self.parent.get_current_time()
-            log(f"[blue]{current_time}[/blue] [green][bold][INFO][/bold] {message}[/green]")
-            self.parent.log_file.log(message, "INFO")
+            self.parent.console.print(
+                f"[blue]{current_time}[/blue] [green][bold][INFO][/bold] {message}[/green]")
+            self.parent.log_file.log(message, "INFO", current_time)
 
         def warn(self, message: str) -> None:
             """
@@ -149,8 +184,9 @@ class Logger:
             if not self.parent.should_log("WARN"):
                 return
             current_time = self.parent.get_current_time()
-            log(f"[blue]{current_time}[/blue] [yellow][bold][WARN][/bold] {message}[/yellow]")
-            self.parent.log_file.log(message, "WARN")
+            self.parent.console.print(
+                f"[blue]{current_time}[/blue] [yellow][bold][WARN][/bold] {message}[/yellow]")
+            self.parent.log_file.log(message, "WARN", current_time)
 
         def debug(self, message: str) -> None:
             """
@@ -162,5 +198,6 @@ class Logger:
             if not self.parent.should_log("DEBUG"):
                 return
             current_time = self.parent.get_current_time()
-            log(f"[blue]{current_time}[/blue] [cyan][bold][DEBUG][/bold] {message}[/cyan]")
-            self.parent.log_file.log(message, "DEBUG")
+            self.parent.console.print(
+                f"[blue]{current_time}[/blue] [cyan][bold][DEBUG][/bold] {message}[/cyan]")
+            self.parent.log_file.log(message, "DEBUG", current_time)

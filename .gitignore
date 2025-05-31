@@ -1,6 +1,6 @@
 .env
-libs
 temp
 logs
 venv
 /.venv
+/libs/__pycache__
