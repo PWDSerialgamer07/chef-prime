@@ -29,7 +29,7 @@ log_file_names: list = ["yuki", "sakura", "mikasa", "miku", "asuka", "rei", "mis
 log_name: str = "logs_" + \
     log_file_names[random.randint(0, len(log_file_names) - 1)]
 logger = Logger(log_file_name=log_name)
-log_printer = logger.Log_Print()
+log_printer = logger.LogPrint()
 # temp folder for downloading audios
 temp_folder = "temp"
 os.makedirs(temp_folder, exist_ok=True)
