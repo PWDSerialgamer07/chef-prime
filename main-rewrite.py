@@ -37,7 +37,7 @@ os.makedirs(temp_folder, exist_ok=True)
 downloaded_file_path = None  # Variable to store the file path
 # ffmpeg and ytdlp options
 ffmpeg_options = {
-    'before_options': '-reconnect 1',
+    'before_options': '',
     'options': '-vn'
 }
 ydl_opts = {
