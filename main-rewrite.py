@@ -33,6 +33,8 @@ logger = Logger(log_file_name=log_name)
 log_printer = Logger.LogPrint(logger)
 # temp folder for downloading audios
 temp_folder = "temp"
+# variable controlling wether or not the current queue is being repeated.
+loop_enabled: bool = False
 os.makedirs(temp_folder, exist_ok=True)
 downloaded_file_path = None  # Variable to store the file path
 # ffmpeg and ytdlp options
@@ -167,6 +169,17 @@ async def play(interaction: discord.Interaction, url: str, timestamp: str = None
         log_printer.error(f"Unexpected error in play command: {e}", e)
 
 
+@bot.slash_command(name="loop", description="Loop current queue.")
+async def loop(interaction: discord.Interaction) -> None:
+    global loop_enabled
+    loop_enabled = not loop_enabled  # Toggle the loop state
+
+    if loop_enabled:
+        await interaction.response.send_message("**Looping enabled**")
+    else:
+        await interaction.response.send_message("**Looping disabled**")
+
+
 async def play_next(interaction: discord.Interaction, l=0):
     # Ensure the bot is connected to the voice channel
     voice_channel = interaction.user.voice.channel
@@ -183,6 +196,8 @@ async def play_next(interaction: discord.Interaction, l=0):
     if url_queue.is_empty():  # If the queue is empty, return nothing
         return
     next_song = url_queue.pop()
+    if loop_enabled:
+        url_queue.append(next_song['url'], next_song['timestamp'])
     timestamp = next_song['timestamp']
 
     try:
