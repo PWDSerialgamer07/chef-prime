@@ -152,7 +152,7 @@ class Logger:
             current_time = self.parent.get_current_time()
             if error and error.__traceback__:
                 # Extract the traceback from the exception and get the last frame (where the error happened)
-                tb_raw = traceback.extract_tb(error.__traceback__)[-3]
+                tb_raw = traceback.extract_tb(error.__traceback__)[-3:]
                 file_infos = [
                     f"(File: {tb.filename}, Line: {tb.lineno}, Function: {tb.name}, Error: {error})"
                     for tb in tb_raw
