@@ -26,3 +26,5 @@ async def join(interaction: discord.Interaction) -> None:
 
     await channel.connect()
     await interaction.followup.send(f"Connected to {channel.name}")
+
+bot.run(TOKEN)
