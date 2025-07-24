@@ -23,8 +23,10 @@ async def join(interaction: discord.Interaction) -> None:
         return
 
     channel = user.voice.channel
-
-    await channel.connect()
+    try:
+        await channel.connect()
+    except Exception as e:
+        print(e)
     await interaction.followup.send(f"Connected to {channel.name}")
 
 bot.run(TOKEN)
